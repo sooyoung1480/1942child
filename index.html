@@ -1,0 +1,1212 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>꼬마 비행사의 하늘 여행 - 1942 키즈</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Jua&family=Gaegu:wght@700&display=swap" rel="stylesheet">
+  <style>
+    body {
+      font-family: 'Jua', 'Gaegu', cursive, sans-serif;
+      user-select: none;
+      -webkit-user-select: none;
+      touch-action: none;
+      background: radial-gradient(circle at 50% 20%, #bbf2f6 0%, #86d2f3 60%, #5bb9eb 100%);
+      overflow: hidden;
+    }
+    .game-font {
+      font-family: 'Jua', sans-serif;
+    }
+    .cute-shadow {
+      box-shadow: 0 8px 0 rgba(0, 0, 0, 0.12), 0 15px 25px rgba(0, 0, 0, 0.1);
+    }
+    .btn-press:active {
+      transform: translateY(4px);
+      box-shadow: 0 4px 0 rgba(0, 0, 0, 0.12);
+    }
+    /* 반짝이는 별 애니메이션 */
+    @keyframes sparkle {
+      0%, 100% { transform: scale(1) rotate(0deg); opacity: 0.9; }
+      50% { transform: scale(1.15) rotate(15deg); opacity: 1; }
+    }
+    .sparkle-anim {
+      animation: sparkle 1.8s infinite ease-in-out;
+    }
+    canvas {
+      display: block;
+      touch-action: none;
+    }
+  </style>
+</head>
+<body class="w-screen h-screen flex flex-col items-center justify-center m-0 p-0 overflow-hidden select-none">
+
+  <div class="relative w-full h-full max-w-lg max-h-[920px] flex flex-col bg-sky-100 shadow-2xl rounded-3xl overflow-hidden border-4 border-white/60">
+    
+    <!-- Top HUD (상단 점수, 하트, 버튼) -->
+    <header class="absolute top-0 left-0 right-0 z-20 flex items-center justify-between px-4 py-3 bg-white/70 backdrop-blur-md border-b-2 border-white/80 rounded-b-2xl shadow-sm">
+      <!-- 하트 체력 -->
+      <div class="flex items-center gap-1 bg-pink-100/90 px-3 py-1.5 rounded-full border-2 border-pink-300">
+        <span class="text-sm text-pink-600 font-bold mr-1">하트:</span>
+        <div id="heartContainer" class="flex text-xl tracking-tight">
+          <span>💖</span><span>💖</span><span>💖</span>
+        </div>
+      </div>
+
+      <!-- 별 점수 -->
+      <div class="flex items-center gap-1.5 bg-amber-100/90 px-4 py-1.5 rounded-full border-2 border-amber-300 shadow-inner">
+        <span class="text-2xl sparkle-anim">⭐</span>
+        <span id="scoreText" class="text-2xl font-bold text-amber-700 tracking-wider">0</span>
+      </div>
+
+      <!-- 보조 조작 버튼들 (소리 / 일시정지) -->
+      <div class="flex items-center gap-2">
+        <button id="soundBtn" class="w-10 h-10 flex items-center justify-center rounded-full bg-blue-100 border-2 border-blue-300 text-xl shadow btn-press">
+          🔊
+        </button>
+        <button id="pauseBtn" class="w-10 h-10 flex items-center justify-center rounded-full bg-emerald-100 border-2 border-emerald-300 text-xl shadow btn-press">
+          ⏸️
+        </button>
+      </div>
+    </header>
+
+    <!-- 메인 게임 캔버스 -->
+    <div id="canvasWrapper" class="relative flex-1 w-full h-full cursor-grab active:cursor-grabbing">
+      <canvas id="gameCanvas" class="w-full h-full"></canvas>
+    </div>
+
+    <!-- 하단 유아용 대형 특수 액션 버튼 (360도 뱅글 회전 & 꼬마 날개) -->
+    <footer class="absolute bottom-3 left-0 right-0 z-20 flex justify-between items-center px-4 pointer-events-none">
+      <!-- 1942 시그니처: 공중제비 (Loop) 버튼 -->
+      <button id="loopBtn" class="pointer-events-auto flex items-center gap-2 px-5 py-3 rounded-2xl bg-gradient-to-r from-purple-500 to-indigo-500 text-white font-bold text-xl cute-shadow border-2 border-white/80 btn-press">
+        <span class="text-2xl">🌀</span>
+        <span class="tracking-wide">빙글 돌기!</span>
+        <span id="loopCount" class="bg-white text-indigo-600 px-2 py-0.5 rounded-full text-sm font-black">3</span>
+      </button>
+
+      <!-- 자동 발사 켜기/끄기 토글 (유아는 손가락만 움직여도 자동 발사!) -->
+      <button id="autoFireBtn" class="pointer-events-auto flex items-center gap-1.5 px-4 py-3 rounded-2xl bg-gradient-to-r from-amber-400 to-orange-400 text-white font-bold text-lg cute-shadow border-2 border-white/80 btn-press">
+        <span>✨</span>
+        <span id="autoFireText">자동 뿅뿅 ON</span>
+      </button>
+    </footer>
+
+    <!-- 시작 화면 모달 -->
+    <div id="startModal" class="absolute inset-0 z-30 flex flex-col items-center justify-center bg-sky-900/40 backdrop-blur-md px-6 text-center">
+      <div class="bg-white/95 p-6 sm:p-8 rounded-3xl border-4 border-yellow-300 cute-shadow max-w-sm w-full flex flex-col items-center transform transition-all scale-100">
+        <div class="text-6xl mb-2 animate-bounce">🛩️</div>
+        <h1 class="text-3xl font-extrabold text-sky-600 mb-1">꼬마 비행사 1942</h1>
+        <p class="text-base text-gray-500 mb-4">하늘의 먹구름을 무지개로 물들여요!</p>
+        
+        <div class="bg-amber-50 p-3 rounded-2xl border-2 border-amber-200 text-left text-sm text-amber-900 mb-6 space-y-1 w-full">
+          <p class="flex items-center gap-2"><span>👆</span> <span><b>손가락이나 마우스</b>로 비행기를 움직여요!</span></p>
+          <p class="flex items-center gap-2"><span>⭐</span> <span>별과 사탕을 모으면 날개가 커져요!</span></p>
+          <p class="flex items-center gap-2"><span>🌀</span> <span>위험할 땐 <b>빙글 돌기</b>로 피해요!</span></p>
+        </div>
+
+        <button id="startGameBtn" class="w-full py-4 rounded-2xl bg-gradient-to-r from-pink-500 via-rose-500 to-amber-500 text-white text-2xl font-bold cute-shadow border-2 border-white btn-press">
+          🚀 신나게 출발!
+        </button>
+      </div>
+    </div>
+
+    <!-- 부드러운 쉼터 모달 (유아용: 실패해도 스트레스 없이 칭찬과 즉시 재시작) -->
+    <div id="restModal" class="hidden absolute inset-0 z-30 flex flex-col items-center justify-center bg-indigo-900/40 backdrop-blur-md px-6 text-center">
+      <div class="bg-white/95 p-6 rounded-3xl border-4 border-pink-300 cute-shadow max-w-sm w-full flex flex-col items-center">
+        <div class="text-6xl mb-2">🎈</div>
+        <h2 class="text-3xl font-bold text-pink-600 mb-1">잠깐 쉬어가요!</h2>
+        <p class="text-base text-gray-600 mb-3">하늘 높이 멋지게 비행했어요! 참 잘했어요 👏</p>
+        
+        <div class="bg-yellow-50 px-6 py-3 rounded-2xl border-2 border-yellow-200 mb-5">
+          <span class="text-sm text-yellow-800">모은 별 개수:</span>
+          <div id="finalScore" class="text-3xl font-extrabold text-amber-600">0개</div>
+        </div>
+
+        <button id="restartGameBtn" class="w-full py-3.5 rounded-2xl bg-gradient-to-r from-emerald-400 to-teal-500 text-white text-2xl font-bold cute-shadow border-2 border-white btn-press">
+          🌈 다시 하늘 날기!
+        </button>
+      </div>
+    </div>
+
+    <!-- 일시정지 모달 -->
+    <div id="pauseModal" class="hidden absolute inset-0 z-30 flex flex-col items-center justify-center bg-sky-900/30 backdrop-blur-sm px-6 text-center">
+      <div class="bg-white/95 p-6 rounded-3xl border-4 border-blue-300 cute-shadow max-w-xs w-full flex flex-col items-center">
+        <div class="text-5xl mb-2">☕</div>
+        <h2 class="text-2xl font-bold text-sky-700 mb-3">잠깐 멈춤</h2>
+        <button id="resumeBtn" class="w-full py-3 rounded-2xl bg-sky-500 text-white text-xl font-bold shadow-md border-2 border-white btn-press">
+          ▶️ 계속하기
+        </button>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    // 유아용 맞춤 Web Audio API 사운드 생성기 (외부 음원 의존성 없음)
+    class KidSoundEffects {
+      constructor() {
+        this.ctx = null;
+        this.muted = false;
+      }
+
+      init() {
+        if (!this.ctx) {
+          const AudioContext = window.AudioContext || window.webkitAudioContext;
+          this.ctx = new AudioContext();
+        }
+        if (this.ctx && this.ctx.state === 'suspended') {
+          this.ctx.resume();
+        }
+      }
+
+      playPop() {
+        if (this.muted || !this.ctx) return;
+        try {
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(450, this.ctx.currentTime);
+          osc.frequency.exponentialRampToValueAtTime(880, this.ctx.currentTime + 0.08);
+          gain.gain.setValueAtTime(0.15, this.ctx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.08);
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+          osc.start();
+          osc.stop(this.ctx.currentTime + 0.08);
+        } catch (e) {}
+      }
+
+      playStar() {
+        if (this.muted || !this.ctx) return;
+        try {
+          const notes = [523.25, 659.25, 783.99, 1046.50]; // 도, 미, 솔, 높은 도
+          const note = notes[Math.floor(Math.random() * notes.length)];
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(note, this.ctx.currentTime);
+          gain.gain.setValueAtTime(0.18, this.ctx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.25);
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+          osc.start();
+          osc.stop(this.ctx.currentTime + 0.25);
+        } catch (e) {}
+      }
+
+      playLoopWhoosh() {
+        if (this.muted || !this.ctx) return;
+        try {
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(260, this.ctx.currentTime);
+          osc.frequency.linearRampToValueAtTime(800, this.ctx.currentTime + 0.45);
+          osc.frequency.linearRampToValueAtTime(400, this.ctx.currentTime + 0.9);
+          gain.gain.setValueAtTime(0.2, this.ctx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.95);
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+          osc.start();
+          osc.stop(this.ctx.currentTime + 0.95);
+        } catch (e) {}
+      }
+
+      playHurt() {
+        if (this.muted || !this.ctx) return;
+        try {
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(320, this.ctx.currentTime);
+          osc.frequency.linearRampToValueAtTime(180, this.ctx.currentTime + 0.2);
+          gain.gain.setValueAtTime(0.15, this.ctx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.2);
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+          osc.start();
+          osc.stop(this.ctx.currentTime + 0.2);
+        } catch (e) {}
+      }
+
+      playPowerup() {
+        if (this.muted || !this.ctx) return;
+        try {
+          const now = this.ctx.currentTime;
+          [523.25, 659.25, 783.99, 1046.50, 1318.51].forEach((freq, i) => {
+            const osc = this.ctx.createOscillator();
+            const gain = this.ctx.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(freq, now + i * 0.06);
+            gain.gain.setValueAtTime(0.12, now + i * 0.06);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.06 + 0.2);
+            osc.connect(gain);
+            gain.connect(this.ctx.destination);
+            osc.start(now + i * 0.06);
+            osc.stop(now + i * 0.06 + 0.2);
+          });
+        } catch (e) {}
+      }
+    }
+
+    const sound = new KidSoundEffects();
+
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const wrapper = document.getElementById('canvasWrapper');
+
+    // UI 요소들
+    const scoreText = document.getElementById('scoreText');
+    const heartContainer = document.getElementById('heartContainer');
+    const loopBtn = document.getElementById('loopBtn');
+    const loopCountEl = document.getElementById('loopCount');
+    const autoFireBtn = document.getElementById('autoFireBtn');
+    const autoFireText = document.getElementById('autoFireText');
+    const soundBtn = document.getElementById('soundBtn');
+    const pauseBtn = document.getElementById('pauseBtn');
+    const startModal = document.getElementById('startModal');
+    const startGameBtn = document.getElementById('startGameBtn');
+    const restModal = document.getElementById('restModal');
+    const restartGameBtn = document.getElementById('restartGameBtn');
+    const pauseModal = document.getElementById('pauseModal');
+    const resumeBtn = document.getElementById('resumeBtn');
+    const finalScore = document.getElementById('finalScore');
+
+    let gameWidth = 400;
+    let gameHeight = 650;
+    let isPlaying = false;
+    let isPaused = false;
+    let score = 0;
+    let lives = 3;
+    let loopsRemaining = 3;
+    let autoFire = true;
+
+    // 반응형 캔버스 크기 조정
+    function resizeCanvas() {
+      const rect = wrapper.getBoundingClientRect();
+      canvas.width = rect.width;
+      canvas.height = rect.height;
+      gameWidth = rect.width;
+      gameHeight = rect.height;
+      if (player) {
+        player.x = Math.min(Math.max(player.x, 30), gameWidth - 30);
+        player.y = Math.min(Math.max(player.y, 40), gameHeight - 60);
+      }
+    }
+    window.addEventListener('resize', resizeCanvas);
+
+    // 바다 배경 요소 (1942 특유의 섬과 바다 파스텔 버전)
+    class OceanBackground {
+      constructor() {
+        this.islands = [
+          { x: 80, y: -100, radius: 45, color: '#a7f3d0', sand: '#fef08a' },
+          { x: 280, y: 150, radius: 65, color: '#86efac', sand: '#fde047' },
+          { x: 120, y: 480, radius: 50, color: '#6ee7b7', sand: '#fef08a' }
+        ];
+        this.clouds = [
+          { x: 50, y: 50, speed: 0.6, scale: 0.8, opacity: 0.6 },
+          { x: 260, y: 220, speed: 0.8, scale: 1.1, opacity: 0.7 },
+          { x: 180, y: 450, speed: 0.5, scale: 0.9, opacity: 0.5 }
+        ];
+        this.oceanOffset = 0;
+      }
+
+      update() {
+        this.oceanOffset = (this.oceanOffset + 1.2) % 60;
+        // 섬 이동
+        this.islands.forEach(island => {
+          island.y += 1.0;
+          if (island.y - island.radius > gameHeight) {
+            island.y = -island.radius - 80;
+            island.x = Math.random() * (gameWidth - 100) + 50;
+          }
+        });
+        // 구름 이동
+        this.clouds.forEach(c => {
+          c.y += c.speed;
+          if (c.y > gameHeight + 50) {
+            c.y = -60;
+            c.x = Math.random() * gameWidth;
+          }
+        });
+      }
+
+      draw(c) {
+        // 부드러운 바다 그라데이션
+        const grad = c.createLinearGradient(0, 0, 0, gameHeight);
+        grad.addColorStop(0, '#7dd3fc');
+        grad.addColorStop(0.5, '#38bdf8');
+        grad.addColorStop(1, '#0284c7');
+        c.fillStyle = grad;
+        c.fillRect(0, 0, gameWidth, gameHeight);
+
+        // 잔잔한 파도 물결 선
+        c.strokeStyle = 'rgba(255, 255, 255, 0.25)';
+        c.lineWidth = 3;
+        for (let y = -60 + this.oceanOffset; y < gameHeight; y += 50) {
+          c.beginPath();
+          for (let x = 0; x < gameWidth; x += 40) {
+            c.quadraticCurveTo(x + 20, y + 8, x + 40, y);
+          }
+          c.stroke();
+        }
+
+        // 섬 그리기
+        this.islands.forEach(island => {
+          // 모래사장
+          c.beginPath();
+          c.arc(island.x, island.y, island.radius + 8, 0, Math.PI * 2);
+          c.fillStyle = island.sand;
+          c.fill();
+          // 초록 숲
+          c.beginPath();
+          c.arc(island.x, island.y, island.radius, 0, Math.PI * 2);
+          c.fillStyle = island.color;
+          c.fill();
+          // 귀여운 야자수 잎 느낌의 점
+          c.fillStyle = '#059669';
+          c.beginPath();
+          c.arc(island.x - 10, island.y - 5, 8, 0, Math.PI * 2);
+          c.arc(island.x + 8, island.y - 8, 9, 0, Math.PI * 2);
+          c.arc(island.x, island.y + 10, 7, 0, Math.PI * 2);
+          c.fill();
+        });
+
+        // 둥실둥실 구름 그리기
+        this.clouds.forEach(cloud => {
+          c.save();
+          c.globalAlpha = cloud.opacity;
+          c.fillStyle = '#ffffff';
+          c.beginPath();
+          c.arc(cloud.x, cloud.y, 25 * cloud.scale, 0, Math.PI * 2);
+          c.arc(cloud.x + 20 * cloud.scale, cloud.y - 10 * cloud.scale, 20 * cloud.scale, 0, Math.PI * 2);
+          c.arc(cloud.x + 40 * cloud.scale, cloud.y, 24 * cloud.scale, 0, Math.PI * 2);
+          c.arc(cloud.x + 20 * cloud.scale, cloud.y + 10 * cloud.scale, 20 * cloud.scale, 0, Math.PI * 2);
+          c.fill();
+          c.restore();
+        });
+      }
+    }
+
+    class PlayerPlane {
+      constructor() {
+        this.x = gameWidth / 2;
+        this.y = gameHeight - 120;
+        this.targetX = this.x;
+        this.targetY = this.y;
+        this.width = 46;
+        this.height = 46;
+        this.propellerAngle = 0;
+        this.fireTimer = 0;
+        this.powerLevel = 1; // 1: 기본별, 2: 쌍둥이별, 3: 세발별 + 날개 친구
+        this.invulnerableTimer = 0;
+
+        // 1942 핵심 특징: 루프(360도 공중회전) 애니메이션
+        this.isLooping = false;
+        this.loopProgress = 0; // 0 to 1
+      }
+
+      startLoop() {
+        if (this.isLooping || loopsRemaining <= 0) return;
+        this.isLooping = true;
+        this.loopProgress = 0;
+        loopsRemaining--;
+        updateLoopUI();
+        sound.playLoopWhoosh();
+        createCheerSparkles(this.x, this.y, 25, ['#f472b6', '#38bdf8', '#facc15', '#a855f7']);
+      }
+
+      update() {
+        // 마우스 및 터치 목표 지점으로 부드럽게 이동 (Smooth lerp)
+        if (!this.isLooping) {
+          this.x += (this.targetX - this.x) * 0.22;
+          this.y += (this.targetY - this.y) * 0.22;
+        }
+
+        // 경계 제한
+        this.x = Math.max(30, Math.min(gameWidth - 30, this.x));
+        this.y = Math.max(60, Math.min(gameHeight - 70, this.y));
+
+        // 프로펠러 회전
+        this.propellerAngle += 0.8;
+
+        // 무적 타이머 감소
+        if (this.invulnerableTimer > 0) {
+          this.invulnerableTimer--;
+        }
+
+        // 루프 회전 로직
+        if (this.isLooping) {
+          this.loopProgress += 0.035;
+          // 회전 중 무지개 파티클 방출
+          if (Math.random() < 0.6) {
+            particles.push(new RainbowTrail(this.x, this.y + 10));
+          }
+          if (this.loopProgress >= 1) {
+            this.isLooping = false;
+            this.loopProgress = 0;
+            this.invulnerableTimer = 30; // 착륙 후 잠깐 무적
+          }
+        }
+
+        // 자동 별 발사 (유아가 버튼을 꾹 누를 필요 없이 자동 발사)
+        this.fireTimer++;
+        if (autoFire && this.fireTimer >= 14 && !this.isLooping) {
+          this.fireBullets();
+          this.fireTimer = 0;
+        }
+      }
+
+      fireBullets() {
+        sound.playPop();
+        if (this.powerLevel === 1) {
+          bullets.push(new StarBullet(this.x, this.y - 20, 0, -8, '#facc15'));
+        } else if (this.powerLevel === 2) {
+          bullets.push(new StarBullet(this.x - 14, this.y - 15, -0.6, -8, '#fb923c'));
+          bullets.push(new StarBullet(this.x + 14, this.y - 15, 0.6, -8, '#fb923c'));
+        } else {
+          bullets.push(new StarBullet(this.x, this.y - 24, 0, -9, '#ec4899'));
+          bullets.push(new StarBullet(this.x - 22, this.y - 10, -1.8, -8, '#38bdf8'));
+          bullets.push(new StarBullet(this.x + 22, this.y - 10, 1.8, -8, '#38bdf8'));
+        }
+      }
+
+      draw(c) {
+        c.save();
+        c.translate(this.x, this.y);
+
+        // 루프 회전 시의 스케일 및 360 회전 효과
+        if (this.isLooping) {
+          const angle = this.loopProgress * Math.PI * 2;
+          const scale = 1 + Math.sin(this.loopProgress * Math.PI) * 0.7; // 크기가 커졌다가 작아짐
+          c.scale(scale, scale);
+          c.rotate(angle);
+        } else if (this.invulnerableTimer > 0 && Math.floor(Date.now() / 80) % 2 === 0) {
+          c.globalAlpha = 0.4; // 깜빡임 효과
+        }
+
+        // 1. 귀여운 바닥 그림자 (고도감 연출)
+        c.fillStyle = 'rgba(0, 0, 0, 0.18)';
+        c.beginPath();
+        c.ellipse(4, 22, 22, 10, 0, 0, Math.PI * 2);
+        c.fill();
+
+        // 2. 비행기 날개 (둥근 빨간색/주황색)
+        c.fillStyle = '#ef4444';
+        c.beginPath();
+        c.roundRect(-30, -5, 60, 14, 7);
+        c.fill();
+        c.fillStyle = '#f87171';
+        c.beginPath();
+        c.roundRect(-28, -3, 56, 6, 3);
+        c.fill();
+
+        // 3. 비행기 동체 (귀여운 둥근 비행선 느낌)
+        c.fillStyle = '#dc2626';
+        c.beginPath();
+        c.ellipse(0, 0, 15, 24, 0, 0, Math.PI * 2);
+        c.fill();
+
+        // 동체 하이라이트
+        c.fillStyle = '#fee2e2';
+        c.beginPath();
+        c.ellipse(-4, -6, 5, 12, -0.2, 0, Math.PI * 2);
+        c.fill();
+
+        // 4. 꼬리 날개
+        c.fillStyle = '#b91c1c';
+        c.beginPath();
+        c.roundRect(-14, 18, 28, 8, 4);
+        c.fill();
+
+        // 5. 귀여운 비행사 콕핏 (조종석 창문 & 방긋 웃는 눈)
+        c.fillStyle = '#93c5fd';
+        c.beginPath();
+        c.arc(0, -3, 9, 0, Math.PI * 2);
+        c.fill();
+        c.strokeStyle = '#ffffff';
+        c.lineWidth = 1.8;
+        c.stroke();
+
+        // 방긋 웃는 눈 (^^)
+        c.strokeStyle = '#1e3a8a';
+        c.lineWidth = 1.5;
+        c.beginPath();
+        c.arc(-4, -4, 2.5, Math.PI, 0);
+        c.arc(4, -4, 2.5, Math.PI, 0);
+        c.stroke();
+
+        // 볼터치 (귀여움 포인트)
+        c.fillStyle = '#f472b6';
+        c.beginPath();
+        c.arc(-6, -1, 1.8, 0, Math.PI * 2);
+        c.arc(6, -1, 1.8, 0, Math.PI * 2);
+        c.fill();
+
+        // 6. 1942 클래식 프로펠러 (회전 애니메이션)
+        c.save();
+        c.translate(0, -25);
+        c.rotate(this.propellerAngle);
+        c.fillStyle = '#facc15';
+        c.beginPath();
+        c.roundRect(-16, -2.5, 32, 5, 2.5);
+        c.fill();
+        c.fillStyle = '#b45309';
+        c.beginPath();
+        c.arc(0, 0, 3.5, 0, Math.PI * 2);
+        c.fill();
+        c.restore();
+
+        // 파워레벨 3일 때 옆에 함께 비행하는 아기 비행기 (1942 윙맨)
+        if (this.powerLevel >= 3) {
+          drawLittleHelper(c, -38, 12);
+          drawLittleHelper(c, 38, 12);
+        }
+
+        c.restore();
+      }
+    }
+
+    // 아기 윙맨 비행기 그리기
+    function drawLittleHelper(c, x, y) {
+      c.save();
+      c.translate(x, y);
+      c.fillStyle = '#38bdf8';
+      c.beginPath();
+      c.roundRect(-12, -3, 24, 6, 3);
+      c.fill();
+      c.fillStyle = '#0284c7';
+      c.beginPath();
+      c.ellipse(0, 0, 7, 12, 0, 0, Math.PI * 2);
+      c.fill();
+      c.fillStyle = '#fff';
+      c.beginPath();
+      c.arc(0, -2, 4, 0, Math.PI * 2);
+      c.fill();
+      c.restore();
+    }
+
+    // 별똥별 탄환 (비폭력적이고 화사한 별 모양 투사체)
+    class StarBullet {
+      constructor(x, y, vx, vy, color) {
+        this.x = x;
+        this.y = y;
+        this.vx = vx;
+        this.vy = vy;
+        this.color = color;
+        this.size = 9;
+        this.rotation = Math.random() * Math.PI;
+      }
+
+      update() {
+        this.x += this.vx;
+        this.y += this.vy;
+        this.rotation += 0.15;
+      }
+
+      draw(c) {
+        c.save();
+        c.translate(this.x, this.y);
+        c.rotate(this.rotation);
+        c.fillStyle = this.color;
+        // 5각 별 그리기
+        c.beginPath();
+        for (let i = 0; i < 5; i++) {
+          c.lineTo(Math.cos((18 + i * 72) * Math.PI / 180) * this.size,
+                   -Math.sin((18 + i * 72) * Math.PI / 180) * this.size);
+          c.lineTo(Math.cos((54 + i * 72) * Math.PI / 180) * (this.size * 0.45),
+                   -Math.sin((54 + i * 72) * Math.PI / 180) * (this.size * 0.45));
+        }
+        c.closePath();
+        c.fill();
+        c.restore();
+      }
+    }
+
+    // 유아용 비행 친구/장애물 (적기 대신 먹구름, 종이비행기, 풍선이 등장하며 맞추면 무지개로 정화됨)
+    class SkyFriend {
+      constructor(type) {
+        this.type = type; // 'cloud' (먹구름), 'plane' (노랑 장난감비행기), 'boss' (거대 무지개 고래 비행선)
+        this.x = Math.random() * (gameWidth - 80) + 40;
+        this.y = -50;
+        this.hp = type === 'cloud' ? 2 : (type === 'plane' ? 3 : 20);
+        this.maxHp = this.hp;
+        this.vx = (Math.random() - 0.5) * 1.5;
+        this.vy = type === 'cloud' ? 1.4 : (type === 'plane' ? 2.0 : 0.8);
+        this.size = type === 'cloud' ? 32 : (type === 'plane' ? 26 : 55);
+        this.wiggle = Math.random() * Math.PI * 2;
+        this.isHappy = false; // 정화되면 웃으며 날아감
+      }
+
+      update() {
+        this.wiggle += 0.05;
+        this.x += this.vx + Math.sin(this.wiggle) * 0.8;
+        this.y += this.vy;
+
+        // 벽 반사
+        if (this.x < 30 || this.x > gameWidth - 30) {
+          this.vx *= -1;
+        }
+      }
+
+      draw(c) {
+        c.save();
+        c.translate(this.x, this.y);
+
+        if (this.type === 'cloud') {
+          // 뾰로통한 먹구름 (맞으면 점점 밝아짐)
+          c.fillStyle = this.hp <= 1 ? '#cbd5e1' : '#94a3b8';
+          c.beginPath();
+          c.arc(0, 0, 20, 0, Math.PI * 2);
+          c.arc(-16, 2, 14, 0, Math.PI * 2);
+          c.arc(16, 2, 14, 0, Math.PI * 2);
+          c.fill();
+
+          // 귀여운 눈과 입 (삐죽 표정)
+          c.fillStyle = '#1e293b';
+          c.beginPath();
+          c.arc(-6, -2, 2.5, 0, Math.PI * 2);
+          c.arc(6, -2, 2.5, 0, Math.PI * 2);
+          c.fill();
+          c.strokeStyle = '#1e293b';
+          c.lineWidth = 1.8;
+          c.beginPath();
+          c.arc(0, 6, 4, Math.PI, 0); // 삐죽 입
+          c.stroke();
+        } else if (this.type === 'plane') {
+          // 귀여운 노란 장난감 글라이더
+          c.fillStyle = '#eab308';
+          c.beginPath();
+          c.ellipse(0, 0, 12, 20, 0, 0, Math.PI * 2);
+          c.fill();
+          c.fillStyle = '#fde047';
+          c.beginPath();
+          c.roundRect(-24, -2, 48, 8, 4);
+          c.fill();
+          // 선글라스 낀 장난꾸러기 표정
+          c.fillStyle = '#1e293b';
+          c.roundRect(-8, -8, 16, 6, 2);
+          c.fill();
+        } else if (this.type === 'boss') {
+          // 거대 무지개 고래 비행선 (보스)
+          c.fillStyle = '#818cf8';
+          c.beginPath();
+          c.ellipse(0, 0, 48, 30, 0, 0, Math.PI * 2);
+          c.fill();
+          c.fillStyle = '#c084fc';
+          c.beginPath();
+          c.roundRect(-30, 15, 60, 8, 4);
+          c.fill();
+          // 왕관
+          c.fillStyle = '#fbbf24';
+          c.beginPath();
+          c.moveTo(-15, -28);
+          c.lineTo(-8, -20);
+          c.lineTo(0, -32);
+          c.lineTo(8, -20);
+          c.lineTo(15, -28);
+          c.lineTo(12, -18);
+          c.lineTo(-12, -18);
+          c.closePath();
+          c.fill();
+          // 웃는 큰 눈
+          c.fillStyle = '#fff';
+          c.beginPath();
+          c.arc(-16, -4, 8, 0, Math.PI * 2);
+          c.arc(16, -4, 8, 0, Math.PI * 2);
+          c.fill();
+          c.fillStyle = '#1e1b4b';
+          c.beginPath();
+          c.arc(-16, -4, 4, 0, Math.PI * 2);
+          c.arc(16, -4, 4, 0, Math.PI * 2);
+          c.fill();
+        }
+
+        c.restore();
+      }
+    }
+
+    // 보너스 아이템 (사탕, 파워업 비행기 날개, 회전 충전)
+    class CollectibleItem {
+      constructor(x, y, kind) {
+        this.x = x;
+        this.y = y;
+        this.kind = kind; // 'candy' (점수), 'power' (날개 강화), 'loop' (회전 충전), 'heart' (체력)
+        this.vy = 1.3;
+        this.floatAngle = Math.random() * Math.PI;
+      }
+
+      update() {
+        this.floatAngle += 0.06;
+        this.y += this.vy;
+        this.x += Math.sin(this.floatAngle) * 1.2;
+      }
+
+      draw(c) {
+        c.save();
+        c.translate(this.x, this.y);
+        const bounce = Math.sin(this.floatAngle) * 3;
+        c.translate(0, bounce);
+
+        if (this.kind === 'candy') {
+          // 달콤한 별사탕
+          c.font = '24px sans-serif';
+          c.textAlign = 'center';
+          c.textBaseline = 'middle';
+          c.fillText('🍬', 0, 0);
+        } else if (this.kind === 'power') {
+          // 날개 파워업
+          c.font = '26px sans-serif';
+          c.textAlign = 'center';
+          c.textBaseline = 'middle';
+          c.fillText('⚡', 0, 0);
+        } else if (this.kind === 'loop') {
+          // 회전 리필
+          c.font = '24px sans-serif';
+          c.textAlign = 'center';
+          c.textBaseline = 'middle';
+          c.fillText('🌀', 0, 0);
+        } else if (this.kind === 'heart') {
+          // 하트 회복
+          c.font = '24px sans-serif';
+          c.textAlign = 'center';
+          c.textBaseline = 'middle';
+          c.fillText('💖', 0, 0);
+        }
+        c.restore();
+      }
+    }
+
+    // 팡팡 터지는 축하 꽃가루 파티클
+    class SparkleParticle {
+      constructor(x, y, color) {
+        this.x = x;
+        this.y = y;
+        const speed = Math.random() * 4 + 2;
+        const angle = Math.random() * Math.PI * 2;
+        this.vx = Math.cos(angle) * speed;
+        this.vy = Math.sin(angle) * speed;
+        this.color = color;
+        this.size = Math.random() * 6 + 4;
+        this.alpha = 1;
+        this.decay = Math.random() * 0.02 + 0.02;
+      }
+
+      update() {
+        this.x += this.vx;
+        this.y += this.vy;
+        this.vy += 0.06; // 중력
+        this.alpha -= this.decay;
+      }
+
+      draw(c) {
+        c.save();
+        c.globalAlpha = Math.max(0, this.alpha);
+        c.fillStyle = this.color;
+        c.beginPath();
+        c.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+        c.fill();
+        c.restore();
+      }
+    }
+
+    // 루프 시 비행기 뒤에 남는 무지개 구름 꼬리
+    class RainbowTrail {
+      constructor(x, y) {
+        this.x = x;
+        this.y = y;
+        const colors = ['#f43f5e', '#fb923c', '#facc15', '#4ade80', '#38bdf8', '#c084fc'];
+        this.color = colors[Math.floor(Math.random() * colors.length)];
+        this.size = 14;
+        this.alpha = 0.8;
+      }
+      update() {
+        this.size += 0.4;
+        this.alpha -= 0.035;
+      }
+      draw(c) {
+        c.save();
+        c.globalAlpha = Math.max(0, this.alpha);
+        c.fillStyle = this.color;
+        c.beginPath();
+        c.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+        c.fill();
+        c.restore();
+      }
+    }
+
+    // 둥실 떠오르는 격려 텍스트 ("최고야!", "+100점!", "슈퍼스타!")
+    class FloatingToast {
+      constructor(x, y, text, color = '#f59e0b') {
+        this.x = x;
+        this.y = y;
+        this.text = text;
+        this.color = color;
+        this.alpha = 1.0;
+        this.vy = -1.5;
+      }
+      update() {
+        this.y += this.vy;
+        this.alpha -= 0.02;
+      }
+      draw(c) {
+        c.save();
+        c.globalAlpha = Math.max(0, this.alpha);
+        c.font = 'bold 20px Jua, sans-serif';
+        c.fillStyle = this.color;
+        c.textAlign = 'center';
+        c.strokeStyle = '#ffffff';
+        c.lineWidth = 4;
+        c.strokeText(this.text, this.x, this.y);
+        c.fillText(this.text, this.x, this.y);
+        c.restore();
+      }
+    }
+
+    const ocean = new OceanBackground();
+    let player = new PlayerPlane();
+    let bullets = [];
+    let enemies = [];
+    let collectibles = [];
+    let particles = [];
+    let toasts = [];
+
+    let spawnTimer = 0;
+    let bossSpawnScore = 200;
+
+    function resetGame() {
+      score = 0;
+      lives = 3;
+      loopsRemaining = 3;
+      updateScoreUI();
+      updateHeartsUI();
+      updateLoopUI();
+      
+      player = new PlayerPlane();
+      bullets = [];
+      enemies = [];
+      collectibles = [];
+      particles = [];
+      toasts = [];
+      spawnTimer = 0;
+      bossSpawnScore = 200;
+      isPaused = false;
+      isPlaying = true;
+    }
+
+    function createCheerSparkles(x, y, count = 16, colors = ['#fde047', '#f472b6', '#38bdf8', '#4ade80']) {
+      for (let i = 0; i < count; i++) {
+        const col = colors[Math.floor(Math.random() * colors.length)];
+        particles.push(new SparkleParticle(x, y, col));
+      }
+    }
+
+    function updateScoreUI() {
+      scoreText.textContent = score;
+    }
+
+    function updateHeartsUI() {
+      let str = '';
+      for (let i = 0; i < 3; i++) {
+        str += i < lives ? '💖' : '🤍';
+      }
+      heartContainer.innerHTML = str;
+    }
+
+    function updateLoopUI() {
+      loopCountEl.textContent = loopsRemaining;
+      if (loopsRemaining <= 0) {
+        loopBtn.classList.add('opacity-50');
+      } else {
+        loopBtn.classList.remove('opacity-50');
+      }
+    }
+
+    function handlePointerMove(e) {
+      if (!isPlaying || isPaused) return;
+      const rect = canvas.getBoundingClientRect();
+      const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+      const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+      player.targetX = clientX - rect.left;
+      player.targetY = clientY - rect.top - 20; // 손가락에 비행기가 가려지지 않도록 약간 위쪽에 배치
+    }
+
+    canvas.addEventListener('mousemove', handlePointerMove);
+    canvas.addEventListener('touchmove', (e) => {
+      e.preventDefault();
+      handlePointerMove(e);
+    }, { passive: false });
+
+    canvas.addEventListener('touchstart', (e) => {
+      sound.init();
+      handlePointerMove(e);
+    }, { passive: true });
+
+    // 루프 버튼 클릭 이벤트
+    loopBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      sound.init();
+      if (player) player.startLoop();
+    });
+
+    // 자동 발사 토글 (부모님 또는 아이가 수동/자동 전환 가능)
+    autoFireBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      sound.init();
+      autoFire = !autoFire;
+      autoFireText.textContent = autoFire ? '자동 뿅뿅 ON' : '자동 뿅뿅 OFF';
+      autoFireBtn.classList.toggle('from-amber-400', autoFire);
+      autoFireBtn.classList.toggle('from-gray-400', !autoFire);
+    });
+
+    // 음소거 토글
+    soundBtn.addEventListener('click', () => {
+      sound.init();
+      sound.muted = !sound.muted;
+      soundBtn.textContent = sound.muted ? '🔇' : '🔊';
+    });
+
+    // 일시정지 토글
+    pauseBtn.addEventListener('click', () => {
+      if (!isPlaying) return;
+      isPaused = !isPaused;
+      pauseModal.classList.toggle('hidden', !isPaused);
+    });
+
+    resumeBtn.addEventListener('click', () => {
+      isPaused = false;
+      pauseModal.classList.add('hidden');
+    });
+
+    startGameBtn.addEventListener('click', () => {
+      sound.init();
+      startModal.classList.add('hidden');
+      resizeCanvas();
+      resetGame();
+    });
+
+    restartGameBtn.addEventListener('click', () => {
+      sound.init();
+      restModal.classList.add('hidden');
+      resizeCanvas();
+      resetGame();
+    });
+
+    // 키보드 조작 지원 (화살표 키, 스페이스바=발사, B=회전)
+    const keys = {};
+    window.addEventListener('keydown', (e) => {
+      keys[e.key] = true;
+      if (e.key === ' ' || e.key === 'b' || e.key === 'B') {
+        sound.init();
+      }
+      if ((e.key === 'b' || e.key === 'B') && player) {
+        player.startLoop();
+      }
+    });
+    window.addEventListener('keyup', (e) => {
+      keys[e.key] = false;
+    });
+
+    function processKeyboardInput() {
+      const speed = 7;
+      if (keys['ArrowLeft'] || keys['a']) player.targetX -= speed;
+      if (keys['ArrowRight'] || keys['d']) player.targetX += speed;
+      if (keys['ArrowUp'] || keys['w']) player.targetY -= speed;
+      if (keys['ArrowDown'] || keys['s']) player.targetY += speed;
+      if (keys[' '] && !autoFire && player.fireTimer >= 14) {
+        player.fireBullets();
+        player.fireTimer = 0;
+      }
+    }
+
+    function checkCollisions() {
+      // 1. 탄환 vs 하늘 친구(장애물)
+      for (let bi = bullets.length - 1; bi >= 0; bi--) {
+        const b = bullets[bi];
+        for (let ei = enemies.length - 1; ei >= 0; ei--) {
+          const enemy = enemies[ei];
+          const dist = Math.hypot(b.x - enemy.x, b.y - enemy.y);
+          if (dist < enemy.size + b.size) {
+            // 맞음 효과
+            bullets.splice(bi, 1);
+            enemy.hp--;
+            sound.playStar();
+            createCheerSparkles(b.x, b.y, 6, [b.color, '#ffffff']);
+
+            if (enemy.hp <= 0) {
+              // 먹구름/비행기가 기분 좋게 별과 캔디를 선물하며 맑아짐!
+              enemies.splice(ei, 1);
+              createCheerSparkles(enemy.x, enemy.y, 20, ['#fde047', '#f472b6', '#38bdf8', '#4ade80']);
+
+              const cheerWords = ['참 잘했어! 👏', '와 대단해! ⭐', '야호! 🎈', '멋져요! 👍'];
+              const word = cheerWords[Math.floor(Math.random() * cheerWords.length)];
+              toasts.push(new FloatingToast(enemy.x, enemy.y, word, '#ec4899'));
+
+              // 점수 획득
+              score += enemy.type === 'boss' ? 100 : 20;
+              updateScoreUI();
+
+              // 아이템 드롭 (사탕, 파워업, 루프 등)
+              const rand = Math.random();
+              if (rand < 0.35) {
+                collectibles.push(new CollectibleItem(enemy.x, enemy.y, 'candy'));
+              } else if (rand < 0.50 && player.powerLevel < 3) {
+                collectibles.push(new CollectibleItem(enemy.x, enemy.y, 'power'));
+              } else if (rand < 0.65 && loopsRemaining < 3) {
+                collectibles.push(new CollectibleItem(enemy.x, enemy.y, 'loop'));
+              } else if (rand < 0.72 && lives < 3) {
+                collectibles.push(new CollectibleItem(enemy.x, enemy.y, 'heart'));
+              }
+            }
+            break;
+          }
+        }
+      }
+
+      // 2. 비행기 vs 아이템 획득
+      for (let i = collectibles.length - 1; i >= 0; i--) {
+        const item = collectibles[i];
+        const dist = Math.hypot(player.x - item.x, player.y - item.y);
+        if (dist < player.width / 2 + 18) {
+          collectibles.splice(i, 1);
+          sound.playPowerup();
+          createCheerSparkles(item.x, item.y, 14, ['#facc15', '#ec4899']);
+
+          if (item.kind === 'candy') {
+            score += 50;
+            updateScoreUI();
+            toasts.push(new FloatingToast(item.x, item.y, '+50 달콤사탕!', '#f59e0b'));
+          } else if (item.kind === 'power') {
+            player.powerLevel = Math.min(3, player.powerLevel + 1);
+            toasts.push(new FloatingToast(item.x, item.y, '날개 슈퍼 파워! ⚡', '#3b82f6'));
+          } else if (item.kind === 'loop') {
+            loopsRemaining = Math.min(5, loopsRemaining + 1);
+            updateLoopUI();
+            toasts.push(new FloatingToast(item.x, item.y, '빙글 돌기 +1 🌀', '#8b5cf6'));
+          } else if (item.kind === 'heart') {
+            lives = Math.min(3, lives + 1);
+            updateHeartsUI();
+            toasts.push(new FloatingToast(item.x, item.y, '하트 가득! 💖', '#ef4444'));
+          }
+        }
+      }
+
+      // 3. 비행기 vs 장애물 충돌 (루프 중이거나 무적일 때는 통과)
+      if (!player.isLooping && player.invulnerableTimer <= 0) {
+        for (let i = enemies.length - 1; i >= 0; i--) {
+          const enemy = enemies[i];
+          const dist = Math.hypot(player.x - enemy.x, player.y - enemy.y);
+          if (dist < (player.width / 2 + enemy.size * 0.7)) {
+            // 충돌 시 부드럽게 튕겨나감 (유아 안심 사운드)
+            sound.playHurt();
+            player.invulnerableTimer = 60; // 1초 무적
+            lives--;
+            updateHeartsUI();
+            createCheerSparkles(player.x, player.y, 15, ['#f87171', '#fbbf24']);
+
+            // 파워 1단계 감소 (최소 1)
+            player.powerLevel = Math.max(1, player.powerLevel - 1);
+            toasts.push(new FloatingToast(player.x, player.y - 30, '괜찮아요! 조심조심~ 🩹', '#64748b'));
+
+            if (lives <= 0) {
+              // 무서운 게임오버 대신 "잠깐 쉬어가요" 모달로 친절하게 안내
+              isPlaying = false;
+              finalScore.textContent = score + '점 ⭐';
+              restModal.classList.remove('hidden');
+            }
+            break;
+          }
+        }
+      }
+    }
+
+    function gameLoop() {
+      requestAnimationFrame(gameLoop);
+
+      if (!isPlaying || isPaused) return;
+
+      processKeyboardInput();
+
+      // 배경 업데이트 및 렌더링
+      ocean.update();
+      ocean.draw(ctx);
+
+      // 플레이어 업데이트 및 렌더링
+      player.update();
+
+      // 탄환 업데이트
+      for (let i = bullets.length - 1; i >= 0; i--) {
+        bullets[i].update();
+        bullets[i].draw(ctx);
+        if (bullets[i].y < -30) {
+          bullets.splice(i, 1);
+        }
+      }
+
+      // 적(구름/비행 친구) 스폰 관리
+      spawnTimer++;
+      if (spawnTimer % 65 === 0) {
+        // 보스 스폰 조건 (일정 점수마다 무지개 고래 비행선 등장)
+        if (score >= bossSpawnScore) {
+          enemies.push(new SkyFriend('boss'));
+          bossSpawnScore += 250;
+          toasts.push(new FloatingToast(gameWidth / 2, 100, '👑 무지개 고래 대장 등장!', '#a855f7'));
+        } else {
+          const type = Math.random() < 0.6 ? 'cloud' : 'plane';
+          enemies.push(new SkyFriend(type));
+        }
+      }
+
+      // 적 업데이트
+      for (let i = enemies.length - 1; i >= 0; i--) {
+        enemies[i].update();
+        enemies[i].draw(ctx);
+        if (enemies[i].y > gameHeight + 60) {
+          enemies.splice(i, 1);
+        }
+      }
+
+      // 수집 아이템 업데이트
+      for (let i = collectibles.length - 1; i >= 0; i--) {
+        collectibles[i].update();
+        collectibles[i].draw(ctx);
+        if (collectibles[i].y > gameHeight + 40) {
+          collectibles.splice(i, 1);
+        }
+      }
+
+      // 플레이어 그리기 (탄환 및 장애물 위 레이어)
+      player.draw(ctx);
+
+      // 파티클 업데이트
+      for (let i = particles.length - 1; i >= 0; i--) {
+        particles[i].update();
+        particles[i].draw(ctx);
+        if (particles[i].alpha <= 0) {
+          particles.splice(i, 1);
+        }
+      }
+
+      // 칭찬 말풍선 업데이트
+      for (let i = toasts.length - 1; i >= 0; i--) {
+        toasts[i].update();
+        toasts[i].draw(ctx);
+        if (toasts[i].alpha <= 0) {
+          toasts.splice(i, 1);
+        }
+      }
+
+      // 충돌 판정 검사
+      checkCollisions();
+    }
+
+    // 초기화 및 게임 루프 가동
+    window.onload = function() {
+      resizeCanvas();
+      gameLoop();
+    };
+  </script>
+</body>
+</html>
